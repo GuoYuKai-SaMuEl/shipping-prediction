@@ -25,7 +25,7 @@ INFLUX_TOKEN  = "shipping-super-secret-token"
 INFLUX_ORG    = "shipping-org"
 INFLUX_BUCKET = "shipping-metrics"
 ES_HOST       = "http://localhost:9200"
-GEMINI_MODEL  = "gemini-2.0-flash"
+GEMINI_MODEL  = "gemini-3.1-flash-lite"
 
 
 # ── Data collection ───────────────────────────────────────────

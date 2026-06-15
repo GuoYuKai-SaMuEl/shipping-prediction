@@ -85,7 +85,7 @@ section[data-testid="stSidebar"] {
   margin-bottom: 2px;
 }
 .page-sub {
-  font-size: 0.78rem; color: #334455;
+  font-size: 0.78rem; color: #5a7a95;
   letter-spacing: 2px; margin-bottom: 20px;
 }
 
@@ -189,7 +189,7 @@ def make_chart(data, title, color="#00d4ff", fill="rgba(0,212,255,0.06)", height
                              hovertemplate="%{x|%m/%d}<br><b>%{y:.2f}</b><extra></extra>"))
     layout = {
         **PLOTLY_LAYOUT, "height": height,
-        "title": dict(text=title, font=dict(size=11, color="#445566"), x=0),
+        "title": dict(text=title, font=dict(size=11, color="#5a7a95"), x=0),
         "yaxis": {**PLOTLY_LAYOUT["yaxis"], "range": [vmin - pad, vmax + pad], "autorange": False},
     }
     fig.update_layout(**layout)
@@ -216,7 +216,7 @@ def render_route_card(r):
     <div class="predict-card">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <span style="font-size:0.7rem;color:#334455;letter-spacing:2px;">{r['name_en'].upper()}</span><br>
+          <span style="font-size:0.7rem;color:#5a7a95;letter-spacing:2px;">{r['name_en'].upper()}</span><br>
           <span style="font-size:0.95rem;font-weight:700;color:#c9d8f0;">{r['desc']}</span>
         </div>
         <div style="text-align:right;">
@@ -225,7 +225,7 @@ def render_route_card(r):
           <div style="margin-top:4px;">{bars}</div>
         </div>
       </div>
-      <div style="margin-top:6px;font-size:0.7rem;color:#334455;">{driver_txt}</div>
+      <div style="margin-top:6px;font-size:0.7rem;color:#5a7a95;">{driver_txt}</div>
     </div>""", unsafe_allow_html=True)
 
 
@@ -257,7 +257,7 @@ with st.sidebar:
     <div style="padding:16px 8px 10px 8px;">
       <div style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;
                   color:#00d4ff;letter-spacing:3px;">⬡ SHIPPULSE</div>
-      <div style="font-size:0.65rem;color:#223344;letter-spacing:3px;margin-top:2px;">
+      <div style="font-size:0.65rem;color:#4e7a9a;letter-spacing:3px;margin-top:2px;">
         MARITIME INTELLIGENCE PLATFORM
       </div>
     </div>
@@ -279,7 +279,7 @@ with st.sidebar:
     # Live quick-stats
     m = api_get("/api/metrics/latest")
     if m:
-        st.markdown('<div style="font-size:0.62rem;color:#223344;letter-spacing:2px;margin-bottom:6px;">LIVE PRICES</div>',
+        st.markdown('<div style="font-size:0.62rem;color:#4e7a9a;letter-spacing:2px;margin-bottom:6px;">LIVE PRICES</div>',
                     unsafe_allow_html=True)
         oil  = m.get("oil_price_usd")
         bdry = m.get("bdry_etf")
@@ -297,16 +297,16 @@ with st.sidebar:
     if ai and ai.get("generated_at"):
         label, color = fmt_age(ai["generated_at"])
         st.markdown(f"""
-        <div style="font-size:0.62rem;color:#223344;letter-spacing:2px;margin-bottom:4px;">AI BRIEF</div>
+        <div style="font-size:0.62rem;color:#4e7a9a;letter-spacing:2px;margin-bottom:4px;">AI BRIEF</div>
         <div style="font-size:0.78rem;color:{color};">● Updated {label}</div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown('<div style="font-size:0.75rem;color:#223344;">AI Brief: not generated</div>',
+        st.markdown('<div style="font-size:0.75rem;color:#4e7a9a;">AI Brief: not generated</div>',
                     unsafe_allow_html=True)
 
     st.markdown("""
     <div style="position:fixed;bottom:12px;left:0;right:0;width:260px;
-                text-align:center;font-size:0.6rem;color:#111c2a;">
+                text-align:center;font-size:0.6rem;color:#4a6a80;">
       ShipPulse v3 · Real-time Maritime Data
     </div>
     """, unsafe_allow_html=True)
@@ -346,12 +346,12 @@ if page == "📊  Overview":
         b_routes = {k: v for k, v in routes.items() if v["type"] == "dry_bulk"}
         col_c, col_b = st.columns(2)
         with col_c:
-            st.markdown('<span style="font-size:0.7rem;color:#334455;letter-spacing:2px;">◆ CONTAINER SHIPPING</span>',
+            st.markdown('<span style="font-size:0.7rem;color:#5a7a95;letter-spacing:2px;">◆ CONTAINER SHIPPING</span>',
                         unsafe_allow_html=True)
             for r in c_routes.values():
                 render_route_card(r)
         with col_b:
-            st.markdown('<span style="font-size:0.7rem;color:#334455;letter-spacing:2px;">◆ DRY BULK SHIPPING</span>',
+            st.markdown('<span style="font-size:0.7rem;color:#5a7a95;letter-spacing:2px;">◆ DRY BULK SHIPPING</span>',
                         unsafe_allow_html=True)
             for r in b_routes.values():
                 render_route_card(r)
@@ -376,7 +376,7 @@ if page == "📊  Overview":
                 link  = f'<a href="{url}" target="_blank" style="color:#b0c8e0;text-decoration:none;">{title}</a>' if url else f'<span style="color:#b0c8e0;">{title}</span>'
                 st.markdown(
                     f'<div class="news-item">{icon} {link}'
-                    f'<div style="font-size:0.7rem;color:#334455;margin-top:4px;">'
+                    f'<div style="font-size:0.7rem;color:#5a7a95;margin-top:4px;">'
                     f'📌 {src} &nbsp;|&nbsp; score: <code style="color:#5588aa;">{score:+.2f}</code></div></div>',
                     unsafe_allow_html=True,
                 )
@@ -401,7 +401,7 @@ if page == "📊  Overview":
         else:
             st.markdown(
                 '<div class="ai-card">'
-                '<div style="color:#334455;font-size:0.82rem;line-height:1.7;">'
+                '<div style="color:#5a7a95;font-size:0.82rem;line-height:1.7;">'
                 'No AI brief generated yet.<br>'
                 'Go to <b style="color:#00ffaa;">AI Market Brief</b> page and click Refresh to generate.'
                 '</div></div>',
@@ -547,7 +547,7 @@ elif page == "📰  News & Sentiment":
                     st.markdown(f"""
                     <div style="background:#080f1c;border:1px solid #12253a;border-radius:6px;
                                 padding:14px;text-align:center;">
-                      <div style="font-size:0.7rem;color:#334455;letter-spacing:1px;margin-bottom:6px;">
+                      <div style="font-size:0.7rem;color:#5a7a95;letter-spacing:1px;margin-bottom:6px;">
                         {html.escape(src['source'][:22])}
                       </div>
                       <div style="font-size:1.6rem;font-weight:700;color:{sc_col};">{sc_val:+.3f}</div>
@@ -590,7 +590,7 @@ elif page == "📰  News & Sentiment":
                 <span style="color:{sent_c};font-size:0.68rem;letter-spacing:1px;
                              flex-shrink:0;margin-top:2px;">{sent_l} {score:+.2f}</span>
               </div>
-              <div style="font-size:0.7rem;color:#334455;margin-top:5px;">
+              <div style="font-size:0.7rem;color:#5a7a95;margin-top:5px;">
                 📌 {src} &nbsp;·&nbsp; {pub}
               </div>
             </div>""", unsafe_allow_html=True)
@@ -628,7 +628,7 @@ elif page == "💬  Community Pulse":
                 st.markdown(f"""
                 <div class="comm-card" style="border-top:3px solid {bc};">
                   <div style="font-size:1.05rem;font-weight:700;color:#00d4ff;">${ticker}</div>
-                  <div style="font-size:0.68rem;color:#334455;margin-bottom:10px;">
+                  <div style="font-size:0.68rem;color:#5a7a95;margin-bottom:10px;">
                     {html.escape(TICKER_DESC.get(ticker, ''))}
                   </div>
                   <div style="font-size:1.8rem;font-weight:700;color:{bc};">{avg:+.3f}</div>
@@ -636,7 +636,7 @@ elif page == "💬  Community Pulse":
                   <div style="font-size:0.72rem;color:#8899aa;">
                     ▲ {pos} bull &nbsp; ▼ {neg} bear &nbsp; — {neu} neutral
                   </div>
-                  <div style="font-size:0.68rem;color:#334455;margin-top:4px;">{total} messages analyzed</div>
+                  <div style="font-size:0.68rem;color:#5a7a95;margin-top:4px;">{total} messages analyzed</div>
                 </div>""", unsafe_allow_html=True)
                 st.progress(bull, text="")
     else:
@@ -664,7 +664,7 @@ elif page == "💬  Community Pulse":
                 <div style="flex:1;font-size:0.84rem;color:#b0c8e0;">{icon} {body}</div>
                 <div style="text-align:right;flex-shrink:0;">
                   <div style="color:{sc_c};font-size:0.82rem;font-weight:700;">{sc:+.2f}</div>
-                  <div style="color:#334455;font-size:0.68rem;">♥ {likes}</div>
+                  <div style="color:#5a7a95;font-size:0.68rem;">♥ {likes}</div>
                 </div>
               </div>
             </div>""", unsafe_allow_html=True)
@@ -682,34 +682,40 @@ elif page == "🤖  AI Market Brief":
 
     ai = load_ai_insights()
 
-    # Status bar + refresh button
+    # Status bar
     hdr_l, hdr_r = st.columns([5, 1])
     with hdr_l:
         if ai and ai.get("generated_at"):
             label, color = fmt_age(ai["generated_at"])
             ts = datetime.fromisoformat(ai["generated_at"].replace("Z", "+00:00"))
+            next_refresh = ts.replace(hour=((ts.hour // 4 + 1) * 4) % 24, minute=0, second=0, microsecond=0)
             st.markdown(
                 f'<span style="color:{color};font-size:0.85rem;">● Last updated: '
-                f'{ts.strftime("%Y-%m-%d %H:%M")} UTC &nbsp;({label})</span>',
+                f'{ts.strftime("%Y-%m-%d %H:%M")} UTC &nbsp;({label})</span>'
+                f'<span style="color:#4e7a9a;font-size:0.78rem;margin-left:16px;">'
+                f'⏱ Auto-refresh every 4 hours</span>',
                 unsafe_allow_html=True,
             )
         else:
-            st.markdown('<span style="color:#334455;font-size:0.85rem;">● No brief generated yet</span>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                '<span style="color:#5a7a95;font-size:0.85rem;">● No brief generated yet</span>'
+                '<span style="color:#4e7a9a;font-size:0.78rem;margin-left:16px;">⏱ Auto-refresh every 4 hours once configured</span>',
+                unsafe_allow_html=True,
+            )
     with hdr_r:
-        refresh = st.button("🔄 Refresh", type="secondary", use_container_width=True)
+        force_now = st.button("⚡ Generate Now", type="secondary", use_container_width=True,
+                              help="Trigger an immediate update (bypasses the 4h schedule)")
 
-    if refresh:
+    if force_now:
         with st.spinner("Calling Gemini — this takes ~10 seconds..."):
             try:
                 r = requests.post(f"{API}/api/ai/refresh", timeout=120)
                 if r.status_code == 200:
-                    st.success("Brief updated successfully!")
+                    st.success("Brief updated!")
                     st.rerun()
                 elif r.status_code == 503:
                     detail = r.json().get("detail", "")
                     st.error(f"API key not configured: {detail}")
-                    st.info("SSH into the server and add `GEMINI_API_KEY=your_key` to the `.env` file, then restart FastAPI.")
                 else:
                     st.error(f"Error {r.status_code}: {r.text[:300]}")
             except requests.exceptions.Timeout:
@@ -752,18 +758,21 @@ elif page == "🤖  AI Market Brief":
             <b style="color:#5588aa;">Step 1.</b> Get a free API key at
             <a href="https://aistudio.google.com" target="_blank" style="color:#00d4ff;">aistudio.google.com</a>
             → Get API key<br>
-            <b style="color:#5588aa;">Step 2.</b> SSH into the server and run:<br>
-            <code style="color:#ffd166;background:#050d1a;padding:4px 8px;border-radius:4px;display:inline-block;margin:6px 0;">
-              echo 'GEMINI_API_KEY=your_key_here' &gt;&gt; ~/homework/shipping-prediction/.env
-            </code><br>
-            <b style="color:#5588aa;">Step 3.</b> Restart the FastAPI server:<br>
-            <code style="color:#ffd166;background:#050d1a;padding:4px 8px;border-radius:4px;display:inline-block;margin:6px 0;">
-              fuser -k 8000/tcp &amp;&amp; cd ~/homework/shipping-prediction &amp;&amp; source .venv/bin/activate &amp;&amp; nohup uvicorn src.dashboard.api.main:app --host 0.0.0.0 --port 8000 &gt; logs/fastapi.log 2&gt;&amp;1 &amp;
-            </code><br>
-            <b style="color:#5588aa;">Step 4.</b> Click the <b style="color:#00d4ff;">🔄 Refresh</b> button above<br><br>
-            <span style="color:#334455;font-size:0.75rem;">
-              For automated updates every 4 hours:<br>
-              <code>nohup python -m src.processing.ai_summarizer --interval 14400 &gt; logs/ai.log 2&gt;&amp;1 &amp;</code>
+            <b style="color:#5588aa;">Step 2.</b> SSH into the server and add the key + restart services:<br>
+            <code style="color:#ffd166;background:#050d1a;padding:6px 10px;border-radius:4px;display:block;margin:6px 0;font-size:0.78rem;">
+echo 'GEMINI_API_KEY=your_key_here' &gt;&gt; ~/homework/shipping-prediction/.env<br>
+cd ~/homework/shipping-prediction &amp;&amp; source .env &amp;&amp; export GEMINI_API_KEY<br>
+source .venv/bin/activate<br>
+fuser -k 8000/tcp<br>
+nohup uvicorn src.dashboard.api.main:app --host 0.0.0.0 --port 8000 &gt; logs/fastapi.log 2&gt;&amp;1 &amp;
+            </code>
+            <b style="color:#5588aa;">Step 3.</b> Start the auto-refresh daemon (generates a new brief every 4 hours):<br>
+            <code style="color:#ffd166;background:#050d1a;padding:6px 10px;border-radius:4px;display:block;margin:6px 0;font-size:0.78rem;">
+nohup python -m src.processing.ai_summarizer --interval 14400 &gt; logs/ai.log 2&gt;&amp;1 &amp;
+            </code>
+            <span style="color:#4e7a9a;font-size:0.78rem;">
+              The daemon runs in the background and saves the brief to disk every 4 hours.<br>
+              Use the <b style="color:#c9d8f0;">⚡ Generate Now</b> button above to force an immediate update.
             </span>
           </div>
         </div>""", unsafe_allow_html=True)
