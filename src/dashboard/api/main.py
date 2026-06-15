@@ -56,27 +56,90 @@ def get_latest_metrics():
         raise HTTPException(status_code=503, detail=str(e))
 
 
-@app.get("/api/metrics/history")
-def get_history(days: int = 30):
+@app.get("/api/metrics/extras")
+def get_extras():
+    """回傳 BDRY ETF 等補充指標的最新值"""
     try:
-        result = {"oil": [], "bdi": [], "rate": []}
-        for measurement, key, field in [
-            ("oil_price",    "oil",  "value"),
-            ("bdi_index",    "bdi",  "value"),
-            ("freight_rate", "rate", "value_usd_teu"),
-        ]:
+        def last_close(source_tag: str):
             flux = f'''
             from(bucket:"{INFLUX_BUCKET}")
-              |> range(start: -{days}d)
-              |> filter(fn:(r) => r._measurement == "{measurement}" and r._field == "{field}")
-              |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)
+              |> range(start: -7d)
+              |> filter(fn:(r) => r._measurement == "bdi_proxy_etf" and r["source"] == "{source_tag}" and r._field == "close")
+              |> last()
             '''
             for t in influx_query(flux):
                 for r in t.records:
-                    result[key].append({
-                        "time": r.get_time().isoformat(),
-                        "value": round(r.get_value(), 2) if r.get_value() else None,
-                    })
+                    return round(r.get_value(), 3)
+            return None
+
+        def last_stock(source_tag: str):
+            flux = f'''
+            from(bucket:"{INFLUX_BUCKET}")
+              |> range(start: -7d)
+              |> filter(fn:(r) => r["source"] == "{source_tag}" and r._field == "close")
+              |> last()
+            '''
+            for t in influx_query(flux):
+                for r in t.records:
+                    return round(r.get_value(), 2)
+            return None
+
+        return {
+            "bdry_etf":  last_close("bdry"),
+            "zim_stock": last_stock("zim"),
+            "sblk_stock": last_stock("star_bulk"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/metrics/history")
+def get_history(days: int = 30):
+    try:
+        result = {"oil": [], "bdi": [], "shipping_stocks": []}
+
+        # 油價（WTI）
+        flux_oil = f'''
+        from(bucket:"{INFLUX_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn:(r) => r._measurement == "oil_price" and r._field == "value")
+          |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)
+        '''
+        for t in influx_query(flux_oil):
+            for r in t.records:
+                result["oil"].append({
+                    "time":  r.get_time().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "value": round(r.get_value(), 2) if r.get_value() else None,
+                })
+
+        # BDI 估算（來自 bdi_index measurement）
+        flux_bdi = f'''
+        from(bucket:"{INFLUX_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn:(r) => r._measurement == "bdi_index" and r._field == "value")
+          |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)
+        '''
+        for t in influx_query(flux_bdi):
+            for r in t.records:
+                result["bdi"].append({
+                    "time":  r.get_time().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "value": round(r.get_value(), 0) if r.get_value() else None,
+                })
+
+        # ZIM 航運股（代表貨櫃市場景氣）
+        flux_zim = f'''
+        from(bucket:"{INFLUX_BUCKET}")
+          |> range(start: -{days}d)
+          |> filter(fn:(r) => r["source"] == "zim" and r._field == "close")
+          |> aggregateWindow(every: 1d, fn: mean, createEmpty: false)
+        '''
+        for t in influx_query(flux_zim):
+            for r in t.records:
+                result["shipping_stocks"].append({
+                    "time":  r.get_time().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "value": round(r.get_value(), 2) if r.get_value() else None,
+                })
+
         return result
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
