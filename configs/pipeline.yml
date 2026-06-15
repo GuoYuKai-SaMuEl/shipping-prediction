@@ -1,0 +1,45 @@
+# 數據管線全域設定
+kafka:
+  broker: "kafka:9092"
+  topics:
+    metrics: "shipping-metrics"
+    news: "shipping-news"
+  partitions: 3
+  replication_factor: 1
+
+ingestion:
+  metrics:
+    interval_seconds: 60
+    sources:
+      - name: "oil_price"
+        type: "api"
+        url: "https://api.eia.gov/v2/petroleum/pri/spt/data/"
+      - name: "bdi_index"
+        type: "api"
+        url: "https://api.example.com/bdi"
+  news:
+    interval_seconds: 300
+    rss_feeds:
+      - "https://www.tradewindsnews.com/rss"
+      - "https://www.lloydslist.com/rss"
+      - "https://splash247.com/feed/"
+
+processing:
+  sentiment:
+    model: "ProsusAI/finbert"
+    batch_size: 16
+    max_length: 512
+  spark:
+    local_cores: 2
+    memory: "1g"
+    shuffle_partitions: 4
+
+storage:
+  influxdb:
+    retention_days: 90
+    batch_size: 500
+  elasticsearch:
+    shards: 1
+    replicas: 0
+  minio:
+    raw_retention_days: 180
