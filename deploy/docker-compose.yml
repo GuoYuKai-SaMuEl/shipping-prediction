@@ -1,0 +1,196 @@
+# =============================================================
+# 海運運價預測系統 — Docker Compose 輕量化部署配置
+# 適配環境：ARM64 (aarch64)，RAM 7.7 GB + Swap 4 GB
+# 各組件均設有記憶體上限，防止 OOM 連鎖崩潰
+# =============================================================
+
+version: "3.8"
+
+# ── 共用網路：所有服務在同一虛擬 LAN 內互通 ──────────────────
+networks:
+  shipping-net:
+    driver: bridge
+
+# ── 持久化磁碟卷：容器重啟後數據不丟失 ───────────────────────
+volumes:
+  kafka-data:
+  es-data:
+  influxdb-data:
+  influxdb-config:
+  minio-data:
+
+services:
+
+  # ============================================================
+  # Kafka (KRaft 模式 — 不需要 Zookeeper，節省 ~300 MB RAM)
+  # 對外埠：9092（Producer/Consumer 連線）
+  # ============================================================
+  kafka:
+    image: apache/kafka:3.7.1          # 官方映像，原生支援 ARM64 + KRaft
+    container_name: shipping-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"                    # 宿主機可直接連線
+    environment:
+      # KRaft 基本設定
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      # 監聽器：內部服務用 29092，宿主機用 9092，控制器用 29093
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,EXTERNAL://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      # 單節點設定
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # 記憶體調校：限制 JVM heap 避免 OOM
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      CLUSTER_ID: "ShippingKraftCluster01"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - shipping-net
+    deploy:
+      resources:
+        limits:
+          memory: 768m               # 硬上限 768 MB
+
+  # ============================================================
+  # Elasticsearch 8.x（單節點，關閉安全驗證以簡化開發）
+  # 對外埠：9200（REST API）
+  # ============================================================
+  elasticsearch:
+    image: elasticsearch:8.13.4      # 官方多架構映像（含 ARM64）
+    container_name: shipping-es
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"   # heap 固定 512 MB，避免動態擴張
+      xpack.security.enabled: "false"       # 開發環境關閉 TLS/Auth
+      xpack.ml.enabled: "false"             # 關閉 ML 功能，節省 ~200 MB
+      cluster.name: "shipping-cluster"
+      bootstrap.memory_lock: "true"         # 防止 heap 被 swap 出去（效能關鍵）
+    ulimits:
+      memlock:                              # 配合 memory_lock 必須設定
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - shipping-net
+    deploy:
+      resources:
+        limits:
+          memory: 1024m              # 硬上限 1 GB
+
+  # ============================================================
+  # InfluxDB 2.x：存放油價、BDI、運量等時序數據
+  # 對外埠：8086（HTTP API）
+  # ============================================================
+  influxdb:
+    image: influxdb:2.7              # 官方映像，支援 ARM64
+    container_name: shipping-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+      DOCKER_INFLUXDB_INIT_ORG: shipping-org
+      DOCKER_INFLUXDB_INIT_BUCKET: shipping-metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: shipping-super-secret-token
+      DOCKER_INFLUXDB_INIT_RETENTION: 2160h  # 數據保留 90 天（節省磁碟）
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    networks:
+      - shipping-net
+    deploy:
+      resources:
+        limits:
+          memory: 512m               # 硬上限 512 MB
+
+  # ============================================================
+  # MinIO：S3 相容對象儲存，存放原始新聞文本與模型 Artifact
+  # 對外埠：9000（API）, 9001（Web Console）
+  # ============================================================
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z  # 固定版本確保穩定性
+    container_name: shipping-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"                  # Web 管理介面
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - shipping-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 384m               # 硬上限 384 MB
+
+  # ============================================================
+  # Flink JobManager：串流處理協調節點（Mini Cluster 模式）
+  # 對外埠：8081（Web UI）
+  # ============================================================
+  flink-jobmanager:
+    image: flink:1.18.1-java11       # 官方映像，支援 ARM64
+    container_name: shipping-flink-jm
+    restart: unless-stopped
+    ports:
+      - "8081:8081"                  # Flink Web UI
+    command: jobmanager
+    mem_limit: 1000m
+    environment:
+      # FLINK_PROPERTIES 由 docker-entrypoint.sh 直接附加到 flink-conf.yaml
+      # 800m 確保 JVM overhead(~256m) + Flink memory(~544m) 不超限
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 800m
+        rest.port: 8081
+        rest.bind-address: 0.0.0.0
+    networks:
+      - shipping-net
+
+  # ============================================================
+  # Flink TaskManager：實際執行串流計算的工作節點
+  # 單節點 1 slot（配合 2 核 CPU 環境）
+  # ============================================================
+  flink-taskmanager:
+    image: flink:1.18.1-java11
+    container_name: shipping-flink-tm
+    restart: unless-stopped
+    command: taskmanager
+    mem_limit: 1200m
+    environment:
+      # 1024m：JVM overhead(256m) + Framework(256m) + Network(64m) + TaskHeap(448m)
+      # managed.size=0b 關閉 off-heap managed memory，節省 128m
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 1024m
+        taskmanager.memory.managed.size: 0b
+        taskmanager.numberOfTaskSlots: 1
+    depends_on:
+      - flink-jobmanager
+    networks:
+      - shipping-net
