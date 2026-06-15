@@ -6,3 +6,15 @@
   Network URL: http://10.128.0.7:8501
   External URL: http://35.208.102.111:8501
 
+  Stopping...
+2026-06-15 15:20:21.565 Shutting down
+2026-06-15 15:20:21.666 Waiting for application shutdown.
+2026-06-15 15:20:21.666 Application shutdown complete.
+2026-06-15 15:20:35.682 Uvicorn server started on 0.0.0.0:8501
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://10.128.0.7:8501
+  External URL: http://35.208.102.111:8501
+

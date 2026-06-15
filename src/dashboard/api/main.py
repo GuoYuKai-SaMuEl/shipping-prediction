@@ -201,6 +201,126 @@ def get_community_sentiment():
         raise HTTPException(status_code=503, detail=str(e))
 
 
+@app.get("/api/predict/routes")
+def predict_routes():
+    """
+    根據目前市場指標，預測六大主要航線運費的漲跌方向與幅度等級。
+    幅度等級：1=輕微(<3%)  2=中等(3-8%)  3=顯著(>8%)
+    """
+    try:
+        # ── 取得各指標近 7 天與近 30 天均值，計算趨勢 ──────────
+        def trend(measurement, field, source_tag=None):
+            tag = f'|> filter(fn:(r) => r["source"] == "{source_tag}")' if source_tag else ""
+            def avg(window):
+                flux = f'''
+                from(bucket:"{INFLUX_BUCKET}")
+                  |> range(start: -{window}d)
+                  |> filter(fn:(r) => r._measurement == "{measurement}" and r._field == "{field}")
+                  {tag}
+                  |> mean()
+                '''
+                for t in influx_query(flux):
+                    for r in t.records:
+                        return r.get_value() or 0
+                return 0
+            a7, a30 = avg(7), avg(30)
+            return (a7 - a30) / a30 if a30 else 0   # 正 = 近期偏高，運費傾向上漲
+
+        oil_trend   = trend("oil_price",       "value")
+        bdry_trend  = trend("bdi_proxy_etf",   "close", "bdry")
+        zim_trend   = trend("container_stock", "close", "zim")
+        sblk_trend  = trend("shipping_stock",  "close", "star_bulk")
+        egle_trend  = trend("shipping_stock",  "close", "eagle_bulk")
+        bulk_trend  = (sblk_trend + egle_trend) / 2
+
+        # ── 新聞與社群情緒（負面 = 供應中斷 = 運費上漲壓力） ───
+        try:
+            ns_resp    = es_post("/shipping-news-index/_search",
+                                 {"size":0,"aggs":{"avg":{"avg":{"field":"score"}}}})
+            news_sent  = ns_resp["aggregations"]["avg"]["value"] or 0
+        except Exception:
+            news_sent = 0
+
+        try:
+            cs_resp   = es_post("/shipping-community-sentiment/_search",
+                                {"size":0,"aggs":{"avg":{"avg":{"field":"score"}}}})
+            comm_sent = cs_resp["aggregations"]["avg"]["value"] or 0
+        except Exception:
+            comm_sent = 0
+
+        disruption = -news_sent   # 負面新聞 → 供應中斷 → 運費上漲
+
+        # ── 各航線評分模型（加權合成） ─────────────────────────
+        routes = {
+            "asia_europe": {
+                "name":  "亞歐航線",
+                "name_en": "Asia → Europe",
+                "desc":  "Shanghai → Rotterdam",
+                "score": zim_trend*0.35 + oil_trend*0.30 + disruption*0.25 + comm_sent*0.10,
+                "type":  "container",
+            },
+            "trans_pacific": {
+                "name":  "跨太平洋",
+                "name_en": "Trans-Pacific",
+                "desc":  "Shanghai → Los Angeles",
+                "score": zim_trend*0.40 + oil_trend*0.25 + disruption*0.25 + comm_sent*0.10,
+                "type":  "container",
+            },
+            "asia_mideast": {
+                "name":  "亞洲↔中東",
+                "name_en": "Asia → Middle East",
+                "desc":  "Shanghai → Jeddah / Dubai",
+                "score": zim_trend*0.30 + oil_trend*0.35 + disruption*0.25 + comm_sent*0.10,
+                "type":  "container",
+            },
+            "mediterranean": {
+                "name":  "地中海航線",
+                "name_en": "Mediterranean",
+                "desc":  "Shanghai → Genoa / Barcelona",
+                "score": zim_trend*0.35 + oil_trend*0.30 + disruption*0.25 + comm_sent*0.10,
+                "type":  "container",
+            },
+            "dry_bulk_cape": {
+                "name":  "乾散貨（好望角）",
+                "name_en": "Dry Bulk Capesize",
+                "desc":  "Brazil / Australia → China",
+                "score": bulk_trend*0.50 + bdry_trend*0.30 + oil_trend*0.15 + disruption*0.05,
+                "type":  "dry_bulk",
+            },
+            "dry_bulk_supra": {
+                "name":  "乾散貨（靈便型）",
+                "name_en": "Supramax Bulk",
+                "desc":  "Global grain / coal routes",
+                "score": bulk_trend*0.45 + bdry_trend*0.35 + oil_trend*0.15 + disruption*0.05,
+                "type":  "dry_bulk",
+            },
+        }
+
+        result = {}
+        for key, r in routes.items():
+            s   = r["score"]
+            mag = 1 if abs(s) < 0.02 else 2 if abs(s) < 0.06 else 3
+            result[key] = {
+                "name":     r["name"],
+                "name_en":  r["name_en"],
+                "desc":     r["desc"],
+                "type":     r["type"],
+                "direction": "up"   if s > 0.005 else "down" if s < -0.005 else "flat",
+                "magnitude": mag,
+                "score":    round(s, 4),
+                "drivers": {
+                    "oil_trend":   round(oil_trend,  4),
+                    "bulk_trend":  round(bulk_trend,  4),
+                    "zim_trend":   round(zim_trend,   4),
+                    "disruption":  round(disruption,  4),
+                    "community":   round(comm_sent,   3),
+                },
+            }
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
 @app.get("/api/community/recent")
 def get_community_recent(ticker: str = "ZIM", size: int = 10):
     try:
