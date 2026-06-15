@@ -1,9 +1,12 @@
 # ShipPulse — Multi-Source Big Data Maritime Shipping Rate Prediction System
 
-**Live Demo:** http://35.208.102.111:8501  
+**Live Demo:** https://shipping.sguo.site  
 **GitHub:** https://github.com/GuoYuKai-SaMuEl/shipping-prediction  
+**Direct IP:** http://35.208.102.111:8501 (same service, no TLS)
 
 > Big Data Systems — Final Project, Spring 2026, National Taiwan University
+>
+> The live demo is deployed on a GCP ARM64 VM (Singapore region) with a custom domain served via reverse proxy. All data ingestion, processing, and the AI brief generation run continuously in the background.
 
 ---
 
@@ -437,32 +440,119 @@ Interactive API docs: `http://localhost:8000/docs`
 
 ## 9. Scalability & Cost
 
-### Current deployment (prototype)
+This section covers two deployment tracks: the **full big data stack** used in this prototype, and a leaner **web-optimized stack** that trades distributed-system complexity for dramatically lower operating costs — more realistic for an early-stage product.
 
-| Resource | Spec | Cost |
+---
+
+### Track A — Full Big Data Stack (current prototype)
+
+The current deployment runs Kafka, Flink, Spark, Elasticsearch, InfluxDB, and MinIO as Docker containers on a single GCP VM. This architecture is designed to demonstrate course concepts; it is over-engineered for the traffic volume of an MVP.
+
+#### Current prototype cost
+
+| Resource | Spec | Monthly cost |
 |---|---|---|
-| GCP e2-standard-2 VM | 2 vCPU, 8 GB RAM, ARM64 | ~USD 50/month |
-| Disk (SSD) | 50 GB | ~USD 5/month |
-| Gemini API (AI Studio free tier) | 15 RPM, 1M TPD | USD 0 |
-| Data sources | Yahoo Finance, RSS, StockTwits | USD 0 |
-| **Total** | | **~USD 55/month** |
+| GCP e2-standard-2 VM | 2 vCPU, 8 GB RAM, ARM64 | ~USD 50 |
+| Disk (SSD boot + data) | 50 GB | ~USD 5 |
+| Custom domain (sguo.site) | — | ~USD 1 |
+| Gemini API (AI Studio free tier) | 15 RPM, 1 M tokens/day | USD 0 |
+| Data sources (Yahoo Finance, RSS, StockTwits) | — | USD 0 |
+| **Total** | | **~USD 56/month** |
 
-### At 10× scale (100 concurrent users, 10 customer tenants)
+**Break-even:** 1 paying user at USD 59/month subscription covers infrastructure. The barrier is not cost but customer acquisition.
 
-- Market data latency requirement tightens: switch from yfinance polling to a licensed WebSocket feed (ICE or Refinitiv, ~USD 500/month).
-- Elasticsearch scales horizontally: add 2 data nodes, replicate indices.
-- InfluxDB: switch to InfluxDB Cloud (USD 250/month for 10 GB/month write).
-- Flink: add 2 TaskManager instances for parallel sentiment aggregation.
-- Deploy behind a load balancer; separate FastAPI into multiple replicas.
-- **Estimated cost at 10×:** USD 1,500–2,500/month → viable at USD 299/tenant/month.
+#### At 10× scale (100 concurrent users, 10 tenants)
 
-### At 100× scale (enterprise, 1,000+ concurrent users)
+Bottlenecks shift to Elasticsearch memory and data licensing as latency requirements tighten.
 
-- Migrate Kafka to Confluent Cloud (managed, USD 1,000+/month for high throughput).
-- Introduce a caching layer (Redis) for frequently-queried API routes.
-- Spark batch jobs move to Databricks or EMR for elastic compute.
-- Gemini API at scale: enterprise contract with higher quota limits.
-- **Estimated cost at 100×:** USD 15,000–30,000/month → break-even at ~100 paying tenants at USD 299/month.
+| Change | Cost |
+|---|---|
+| Licensed market data feed (ICE/Refinitiv WebSocket) | +USD 500 |
+| Elasticsearch 3-node cluster (GCP) | +USD 300 |
+| InfluxDB Cloud (10 GB/month write) | +USD 250 |
+| Additional VM for FastAPI replicas + load balancer | +USD 80 |
+| **Estimated total** | **~USD 1,200/month** |
+
+Break-even: **5 tenants at USD 249/month** — achievable but requires a real sales effort.
+
+#### At 100× scale (1,000+ users, enterprise)
+
+| Change | Cost |
+|---|---|
+| Confluent Cloud (managed Kafka, high throughput) | +USD 1,000 |
+| Databricks (Spark batch, elastic) | +USD 800 |
+| Elasticsearch Cloud (6 nodes, HA) | +USD 1,200 |
+| Gemini enterprise quota | +USD 500 |
+| Load balancer, CDN, monitoring | +USD 300 |
+| **Estimated total** | **~USD 4,000/month** |
+
+Break-even: **20 tenants at USD 199/month** — viable as a niche B2B SaaS.
+
+---
+
+### Track B — Web-Optimized Lightweight Stack (lower-cost path)
+
+For an early commercial product serving tens of users, the distributed big data stack is unnecessary overhead. Most of its components can be replaced with leaner equivalents that require no cluster management:
+
+| Big data component | Lightweight replacement | Saving |
+|---|---|---|
+| Apache Kafka | Python `schedule` + cron jobs | −USD 0 (removes operational complexity) |
+| Apache Flink | SQLite/PostgreSQL triggers | −USD 0 |
+| Elasticsearch | PostgreSQL with full-text search (`tsvector`) | −USD 50–300/month |
+| InfluxDB | TimescaleDB (PostgreSQL extension) | −USD 30–250/month |
+| MinIO | Local filesystem or Cloudflare R2 (free 10 GB) | −USD 5–20/month |
+| GCP e2 VM | Hetzner CAX11 (ARM64, 2 vCPU, 4 GB RAM) | −USD 42/month |
+
+#### Lightweight stack cost at MVP scale (1–20 users)
+
+| Resource | Spec | Monthly cost |
+|---|---|---|
+| Hetzner CAX11 VPS (ARM64) | 2 vCPU, 4 GB RAM | EUR 3.79 (~USD 4) |
+| Cloudflare R2 storage | 10 GB free tier | USD 0 |
+| PostgreSQL + TimescaleDB | Self-hosted on same VPS | USD 0 |
+| Gemini API (AI Studio free tier) | Sufficient for ≤ 20 brief/day | USD 0 |
+| Custom domain + SSL (Let's Encrypt) | — | ~USD 1 |
+| **Total** | | **~USD 5/month** |
+
+**Break-even: 1 paying user at any price above USD 5/month.**  
+At a USD 29/month starter plan, a single customer generates **5.8× the operating cost** — the business is immediately profitable from the first subscriber.
+
+#### Lightweight stack at 10× scale (200 users)
+
+| Resource | Monthly cost |
+|---|---|
+| Hetzner CAX31 (8 vCPU, 16 GB RAM) | EUR 13 (~USD 14) |
+| Managed PostgreSQL (Hetzner DBaaS) | EUR 20 (~USD 22) |
+| Cloudflare R2 (100 GB data) | USD 1.50 |
+| Gemini API (pay-as-you-go, ~500 briefs/month) | ~USD 5 |
+| **Total** | **~USD 43/month** |
+
+Break-even: **2 paying users at USD 29/month**, or **1 user at USD 49/month**.
+
+#### Lightweight stack at 100× scale (2,000 users)
+
+At this scale, managed services become cost-effective:
+
+| Resource | Monthly cost |
+|---|---|
+| Hetzner CCX53 dedicated (32 vCPU, 128 GB RAM) | EUR 200 (~USD 220) |
+| Managed PostgreSQL, HA pair | EUR 80 (~USD 88) |
+| Cloudflare CDN + R2 | USD 20 |
+| Redis Cloud (session cache) | USD 15 |
+| Gemini API (5,000 briefs/month) | ~USD 50 |
+| Monitoring (Grafana Cloud free tier) | USD 0 |
+| **Total** | **~USD 393/month** |
+
+Break-even: **14 paying users at USD 29/month** — or, more realistically at this user count, **4 tenants at USD 99/month**.
+
+#### Why keep the big data stack at all?
+
+The full stack (Kafka, Flink, Spark) is not wasted: it provides a direct upgrade path when the product outgrows the lightweight stack. Concretely:
+- **Kafka** becomes valuable when ingestion sources exceed 10 and need decoupling (e.g., adding AIS vessel tracking, port congestion feeds, customs data).
+- **Flink** adds value when real-time alerting (e.g., "rate spike detected — alert user") needs sub-second latency.
+- **Spark** enables historical backtesting of prediction models across years of data — not possible with TimescaleDB at petabyte scale.
+
+The lightweight stack is the right choice for months 0–18; the full big data stack is the right architecture for months 18+, once product-market fit is established and data volume justifies the operational overhead.
 
 ---
 
