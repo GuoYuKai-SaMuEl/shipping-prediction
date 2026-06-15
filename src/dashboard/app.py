@@ -195,15 +195,30 @@ def make_plotly(data, title, color="#00d4ff", fill_color="rgba(0,212,255,0.06)")
     df["time"] = pd.to_datetime(df["time"], format="%Y-%m-%dT%H:%M:%SZ", utc=True)
     df = df.sort_values("time").dropna(subset=["value"])
 
+    vmin, vmax = df["value"].min(), df["value"].max()
+    pad        = max((vmax - vmin) * 0.08, abs(vmax) * 0.005)  # 至少留 0.5% 空間
+    y_range    = [vmin - pad, vmax + pad]
+    baseline   = [vmin - pad] * len(df)  # 填色基準線 = 資料底部，不從零開始
+
     fig = go.Figure()
+    # 不可見的基準線，用來讓 fill="tonexty" 從資料底部填色
+    fig.add_trace(go.Scatter(
+        x=df["time"], y=baseline,
+        mode="lines", line=dict(width=0),
+        showlegend=False, hoverinfo="skip",
+    ))
     fig.add_trace(go.Scatter(
         x=df["time"], y=df["value"],
         mode="lines",
         line=dict(color=color, width=1.8),
-        fill="tozeroy", fillcolor=fill_color,
+        fill="tonexty", fillcolor=fill_color,   # 填到基準線，非零點
         hovertemplate="%{x|%m/%d}<br><b>%{y:.2f}</b><extra></extra>",
     ))
-    layout = {**PLOTLY_LAYOUT, "title": dict(text=title, font=dict(size=11, color="#5588aa"), x=0)}
+    layout = {
+        **PLOTLY_LAYOUT,
+        "title": dict(text=title, font=dict(size=11, color="#5588aa"), x=0),
+        "yaxis": {**PLOTLY_LAYOUT["yaxis"], "range": y_range, "autorange": False},
+    }
     fig.update_layout(**layout)
     return fig
 
