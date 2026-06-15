@@ -38,3 +38,44 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 INFO:     127.0.0.1:43646 - "GET /api/metrics/latest HTTP/1.1" 200 OK
 INFO:     127.0.0.1:43648 - "GET /api/metrics/extras HTTP/1.1" 200 OK
 INFO:     127.0.0.1:43660 - "GET /api/metrics/history?days=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53146 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53156 - "GET /api/metrics/extras HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53162 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53170 - "GET /api/metrics/history?days=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53180 - "GET /api/news/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53194 - "GET /api/sentiment/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59680 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59694 - "GET /api/metrics/extras HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59706 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59722 - "GET /api/metrics/history?days=88 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59724 - "GET /api/news/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59730 - "GET /api/sentiment/summary HTTP/1.1" 200 OK
+INFO:     Started server process [48256]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): [errno 98] address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     127.0.0.1:43968 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43982 - "GET /api/community/sentiment HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35300 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35304 - "GET /api/metrics/history?days=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35318 - "GET /api/news/latest?size=20 HTTP/1.1" 503 Service Unavailable
+INFO:     127.0.0.1:35324 - "GET /api/news/sentiment HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35340 - "GET /api/community/sentiment HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:35350 - "GET /api/community/recent?ticker=ZIM&size=5 HTTP/1.1" 404 Not Found
+INFO:     Started server process [48348]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): [errno 98] address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     127.0.0.1:51222 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     Started server process [48402]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): [errno 98] address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     127.0.0.1:52840 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39184 - "GET /openapi.json HTTP/1.1" 200 OK
