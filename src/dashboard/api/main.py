@@ -1,13 +1,18 @@
 """
-FastAPI 後端：運價預測 API
-數據來源：InfluxDB（市場時序）+ Elasticsearch（新聞 & 社群情緒）
+FastAPI backend: Shipping Rate Prediction API
+Data sources: InfluxDB (market time-series) + Elasticsearch (news & community sentiment)
 """
 import json
+import os
 import urllib.request
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from influxdb_client import InfluxDBClient
 from pydantic import BaseModel
+
+BASE_DIR      = Path(__file__).resolve().parents[3]
+INSIGHTS_PATH = BASE_DIR / "data" / "ai_insights.json"
 
 INFLUX_URL    = "http://localhost:8086"
 INFLUX_TOKEN  = "shipping-super-secret-token"
@@ -15,7 +20,7 @@ INFLUX_ORG    = "shipping-org"
 INFLUX_BUCKET = "shipping-metrics"
 ES_HOST       = "http://localhost:9200"
 
-app = FastAPI(title="海運運價預測 API", version="2.0.0")
+app = FastAPI(title="ShipPulse Maritime Intelligence API", version="3.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -335,6 +340,32 @@ def get_community_recent(ticker: str = "ZIM", size: int = 10):
         return [h["_source"] for h in resp["hits"]["hits"]]
     except Exception as e:
         raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/api/ai/insights")
+def get_ai_insights():
+    if not INSIGHTS_PATH.exists():
+        return {"summary": None, "generated_at": None, "meta": {}}
+    try:
+        return json.loads(INSIGHTS_PATH.read_text())
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.post("/api/ai/refresh")
+async def refresh_ai_insights():
+    import asyncio
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured on server")
+    try:
+        import sys
+        sys.path.insert(0, str(BASE_DIR))
+        from src.processing.ai_summarizer import generate_and_save
+        result = await asyncio.to_thread(generate_and_save, api_key)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class PredictionRequest(BaseModel):
