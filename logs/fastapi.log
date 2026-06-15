@@ -1,0 +1,19 @@
+INFO:     Started server process [45844]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:34684 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34994 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35002 - "GET /api/sentiment/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37798 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37810 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37820 - "GET /api/metrics/history?days=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37830 - "GET /api/news/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37836 - "GET /api/sentiment/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38540 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38550 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38566 - "GET /api/metrics/history?days=55 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38574 - "GET /api/news/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38580 - "GET /api/sentiment/summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40712 - "GET /api/metrics/latest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41964 - "GET /api/metrics/latest HTTP/1.1" 200 OK
