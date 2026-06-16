@@ -259,6 +259,9 @@ All services containerized via Docker Compose on a shared bridge network
 
 ```
 shipping-prediction/
+├── start.sh                        # ← One-command startup (all services)
+├── stop.sh                         # ← One-command shutdown
+├── status.sh                       # ← Service health overview
 ├── deploy/
 │   └── docker-compose.yml          # All 6 containerized services
 ├── src/
@@ -284,10 +287,14 @@ shipping-prediction/
 │       └── kafka_client.py
 ├── data/
 │   └── ai_insights.json            # Latest Gemini-generated market brief
-├── logs/
+├── logs/                           # Per-process log files (auto-created)
 │   ├── fastapi.log
 │   ├── streamlit.log
-│   └── ai.log
+│   ├── fetcher.log
+│   ├── news_fetcher.log
+│   ├── community.log
+│   └── ai_summarizer.log
+├── .pids/                          # PID files for start/stop scripts (auto-created)
 ├── configs/
 ├── requirements.txt
 ├── .env                            # Environment variables (see below)
@@ -302,11 +309,59 @@ shipping-prediction/
 ### Prerequisites
 
 - Python 3.11+ (tested on 3.14.4)
-- Docker + Docker Compose
+- Docker + Docker Compose V2
 - 8 GB RAM recommended (6 GB minimum with swap)
 - Google AI Studio API key (free at https://aistudio.google.com) — required only for AI briefs
 
-### Step 1: Clone and configure environment
+---
+
+### Quick Start (recommended)
+
+Three shell scripts handle the entire lifecycle. After cloning and setting up the environment (see below), all services can be controlled with single commands:
+
+```bash
+./start.sh        # Start everything (Docker infra + all Python daemons)
+./stop.sh         # Stop everything
+./status.sh       # Show live health of all services
+```
+
+To stop Python processes only (e.g., to redeploy the dashboard while keeping databases running):
+
+```bash
+./stop.sh --keep-docker
+```
+
+`start.sh` start sequence and what each step does:
+
+| Step | What happens |
+|---|---|
+| 1 | `docker compose up -d` — starts Kafka, ES, InfluxDB, MinIO, Flink (×2) |
+| 2 | Polls ES (`:9200`) and InfluxDB (`:8086/ping`) until healthy, up to 90 s |
+| 3 | Launches 3 ingestion daemons with `nohup` (market data, news, community) |
+| 4 | Launches AI Summarizer if `GEMINI_API_KEY` is set in `.env` |
+| 5 | Launches FastAPI (`:8000`) and Streamlit (`:8501`) |
+| — | All PIDs saved to `.pids/`; all logs appended to `logs/` |
+
+`stop.sh` shutdown sequence:
+
+| Step | What happens |
+|---|---|
+| 1 | Sends SIGTERM to each PID in `.pids/`, waits 2 s, sends SIGKILL if still alive |
+| 2 | Scans for any orphaned processes not tracked by PID files |
+| 3 | Runs `docker compose down` (unless `--keep-docker` flag is passed) |
+
+`status.sh` shows at a glance:
+
+- Docker container state (running / not found) for all 6 containers
+- HTTP reachability of ES, InfluxDB, MinIO, Flink UI, FastAPI, and Streamlit
+- PID-file status for each Python process
+- Last log line from each `logs/*.log` file
+
+---
+
+### First-Time Setup
+
+#### Step 1: Clone and configure environment
 
 ```bash
 git clone git@github.com:GuoYuKai-SaMuEl/shipping-prediction.git
@@ -315,91 +370,101 @@ cd shipping-prediction
 cat > .env << 'EOF'
 KAFKA_BROKER=localhost:9092
 ES_HOST=http://localhost:9200
-INFLUX_URL=http://localhost:8086
-INFLUX_TOKEN=shipping-super-secret-token
-INFLUX_ORG=shipping-org
-INFLUX_BUCKET=shipping-metrics
+INFLUXDB_URL=http://localhost:8086
+INFLUXDB_TOKEN=shipping-super-secret-token
+INFLUXDB_ORG=shipping-org
+INFLUXDB_BUCKET=shipping-metrics
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin123
-GEMINI_API_KEY=your_key_here        # optional, only for AI brief feature
+GEMINI_API_KEY=your_key_here        # optional — required only for AI brief feature
 EOF
 ```
 
-### Step 2: Start infrastructure (Docker)
+#### Step 2: Set up Python environment
 
 ```bash
-cd deploy
-docker compose up -d
-
-# Verify all 6 services are healthy (~60 seconds for Elasticsearch to initialize)
-docker compose ps
-```
-
-Services started:
-| Container | Port | Purpose |
-|---|---|---|
-| shipping-kafka | 9092 | Message queue (KRaft mode) |
-| shipping-es | 9200 | News & sentiment search |
-| shipping-influxdb | 8086 | Time-series market data |
-| shipping-minio | 9000, 9001 | Object storage |
-| shipping-flink-jm | 8081 | Flink job manager |
-| shipping-flink-tm | — | Flink task manager |
-
-### Step 3: Set up Python environment
-
-```bash
-cd ..  # back to project root
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# Note: kafka-python 2.0.2 is incompatible with Python 3.14+
-# Use kafka-python-ng instead:
+# kafka-python 2.0.2 is incompatible with Python 3.14+; use the drop-in replacement:
 pip install kafka-python-ng
 ```
 
-### Step 4: Start data ingestion
+#### Step 3: Start
 
 ```bash
-source .env && export $(cut -d= -f1 .env)
+./start.sh
+```
+
+The script prints the Dashboard, API, and Flink UI URLs when startup is complete.
+
+Services started by Docker Compose:
+
+| Container | Port | Purpose |
+|---|---|---|
+| shipping-kafka | 9092 | Message queue (KRaft mode, no Zookeeper) |
+| shipping-es | 9200 | News & sentiment full-text search |
+| shipping-influxdb | 8086 | Time-series market data (90-day retention) |
+| shipping-minio | 9000, 9001 | S3-compatible object storage + Web UI |
+| shipping-flink-jm | 8081 | Flink job manager + Web UI |
+| shipping-flink-tm | — | Flink task manager (1 slot) |
+
+Python daemons launched by `start.sh`:
+
+| Process | Update interval | Log file |
+|---|---|---|
+| `timeseries_producer.py` | 5 min | `logs/fetcher.log` |
+| `real_news_fetcher.py` | 10 min | `logs/news_fetcher.log` |
+| `community_sentiment.py` | 15 min | `logs/community.log` |
+| `ai_summarizer.py` | 4 hours | `logs/ai_summarizer.log` |
+| FastAPI (`uvicorn`) | — | `logs/fastapi.log` |
+| Streamlit | — | `logs/streamlit.log` |
+
+---
+
+### Manual Steps (for debugging individual components)
+
+<details>
+<summary>Expand manual startup commands</summary>
+
+```bash
+# Infrastructure only
+docker compose -f deploy/docker-compose.yml up -d
+
+# Activate venv
 source .venv/bin/activate
 
-# Market data (Yahoo Finance → InfluxDB), updates every 5 minutes
-nohup python -m src.ingestion.real_data_fetcher --watch > logs/fetcher.log 2>&1 &
+# Market data (Yahoo Finance → Kafka → InfluxDB), every 5 minutes
+nohup python3 src/ingestion/timeseries_producer.py --interval 300 > logs/fetcher.log 2>&1 &
 
-# Shipping news (RSS → Elasticsearch), updates every 10 minutes
-nohup python -m src.ingestion.real_news_fetcher --interval 600 > logs/news.log 2>&1 &
+# Shipping news (RSS → Elasticsearch), every 10 minutes
+nohup python3 src/ingestion/real_news_fetcher.py --interval 600 > logs/news_fetcher.log 2>&1 &
 
-# Community sentiment (StockTwits → Elasticsearch), updates every 15 minutes
-nohup python -m src.ingestion.community_sentiment --interval 900 > logs/community.log 2>&1 &
-```
+# Community sentiment (StockTwits → Elasticsearch), every 15 minutes
+nohup python3 src/ingestion/community_sentiment.py --interval 900 > logs/community.log 2>&1 &
 
-### Step 5: Start the API and dashboard
+# AI Market Brief daemon, every 4 hours
+nohup python3 -m src.processing.ai_summarizer --interval 14400 > logs/ai_summarizer.log 2>&1 &
 
-```bash
 # FastAPI backend
-nohup uvicorn src.dashboard.api.main:app --host 0.0.0.0 --port 8000 > logs/fastapi.log 2>&1 &
+nohup .venv/bin/uvicorn src.dashboard.api.main:app --host 0.0.0.0 --port 8000 > logs/fastapi.log 2>&1 &
 
 # Streamlit dashboard
-nohup streamlit run src/dashboard/app.py --server.port 8501 --server.headless true > logs/streamlit.log 2>&1 &
+nohup .venv/bin/streamlit run src/dashboard/app.py \
+  --server.port 8501 --server.headless true --server.address 0.0.0.0 \
+  > logs/streamlit.log 2>&1 &
 ```
 
-Dashboard is now available at: **http://localhost:8501**
-
-### Step 6: Start AI Market Brief auto-refresh (optional)
-
-Requires `GEMINI_API_KEY` in `.env`.
+One-time AI brief (no daemon):
 
 ```bash
-export GEMINI_API_KEY=your_key_here
-# Generates a new AI brief every 4 hours
-nohup python -m src.processing.ai_summarizer --interval 14400 > logs/ai.log 2>&1 &
+python3 -m src.processing.ai_summarizer --once
 ```
 
-Or trigger a one-time generation:
-```bash
-python -m src.processing.ai_summarizer --once
-```
+</details>
+
+---
 
 ### Reproducing the Demand Evidence Data Collection
 
@@ -407,7 +472,7 @@ The forum and job posting analysis referenced in Section 2 can be partially repr
 
 ```bash
 # Fetch recent shipping news to inspect headline sentiment distribution
-python -m src.ingestion.real_news_fetcher --once
+python3 src/ingestion/real_news_fetcher.py --once
 # Query Elasticsearch for sentiment breakdown
 curl -s http://localhost:9200/shipping-news-index/_search \
   -H 'Content-Type: application/json' \

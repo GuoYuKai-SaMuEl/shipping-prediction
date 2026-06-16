@@ -1,0 +1,22 @@
+# Environment variables (contains API keys)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Logs and runtime state
+logs/
+.pids/
+
+# Data generated at runtime
+data/ai_insights.json
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
